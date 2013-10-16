@@ -1,4 +1,4 @@
 radseq
 ======
 
-Scripts and things I need to keep around
+Scripts and wrappers for radtags code to deal with SciLifeLab directory structures.
