@@ -1,19 +1,30 @@
 #!/usr/bin/python
 
-#import argparse
+import argparse
 import fnmatch
 import os
 #import pprint
 import re
 import subprocess
 
-def main(rest_enzyme, root_path = os.getcwd(), pattern=r'*1.fastq*', output_dir='process_radtags_output', merge=False):
-    files_to_process = []
-    assert pattern is not None
+def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fastq*', output_dir='process_radtags_output', merge=True, overwrite_output_dir=False):
+    enzyme_choices = ('apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I', 'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII',
+                      'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI', 'sgrAI', 'sphI', 'taqI', 'xbaI')
 
+    if not rest_enzyme_list:
+        raise ValueError("No restriction enzyme specified; this is a required value.")
+    if len(rest_enzyme_list) > 2:
+        print >>sys.stderr, "Too many enzymes specified ({0}). Truncating to first two enzymes (\"{}\" and \"{}\").".format(
+                                                            len(rest_enzyme_list), rest_enzyme_list[0], rest_enzyme_list[1])
+        rest_enzmye_list = rest_enzyme_list[:2]
+    for rest_enzyme in rest_enzyme_list:
+        if rest_enzyme not in enzyme_choices:
+            raise ValueError("Restriction enzyme \"{0}\" invalid. Valid values include:\n{1}".format(rest_enzyme, ", ".join(enzyme_choices)))
+
+    files_to_process = []
     # Walk the directory, finding pairs of fastq files
-    for root, dirs, files in os.walk(root_path):
-        read_1_files = fnmatch.filter(files, pattern)
+    for root, dirs, files in os.walk(input_dir):
+        read_1_files = fnmatch.filter(files, file_pattern)
         for filename in read_1_files:
             m = re.match('(?P<file_name>.*)_1.fastq(?P<gzip_ext>.gz)', filename)
             if m:
@@ -25,14 +36,23 @@ def main(rest_enzyme, root_path = os.getcwd(), pattern=r'*1.fastq*', output_dir=
                                           "gzip"        :   m.group('gzip_ext'),
                                           "merge_file"  : "{0}.fastq".format(m.group('file_name')),})
 
+    if not files_to_process:
+        raise ValueError("No files matching pattern \"{}\" found under directory {}. Exiting.".format(file_pattern))
+
     # Create the output directory if it does not exist
-    if not os.path.exists(output_dir):
+    if os.path.exists(output_dir):
+        if not overwrite_output_dir:
+            raise OSError("Output directory \"{}\" exists; will not overwrite.".format(output_dir))
+    else:
         os.makedirs(output_dir)
+
     # Build the command
     for pair in files_to_process:
         cl =  ["process_radtags"]
         cl += ["-c", "-q", "--filter_illumina"]
-        cl += ["-e", rest_enzyme]
+        cl += ["-e", rest_enzyme_list.pop(0)]
+        if rest_enzyme_list:
+            cl += ["--renz_2", rest_enzyme_list.pop(0)]
         if pair["gzip"]:
             cl += ["-i", "gzfastq"]
         cl += ["-o", output_dir]
@@ -42,7 +62,7 @@ def main(rest_enzyme, root_path = os.getcwd(), pattern=r'*1.fastq*', output_dir=
             cl += ["-f", pair["files"][0]]
         if merge:
             cl += ["--merge"]
-    # Execute
+        # Execute
         subprocess.check_call(cl)
 
     # Merge individual reads into one file per sample
@@ -58,6 +78,7 @@ def main(rest_enzyme, root_path = os.getcwd(), pattern=r'*1.fastq*', output_dir=
             files_to_merge.append(file_to_merge)
 
         with open(os.path.join(output_dir, pair["merge_file"]), 'a+') as outf:
+            # TODO: print this to the log file
             print("Merging files \"{0}\" and \"{1}\" into file \"{2}\"\n".format(files_to_merge[0], files_to_merge[1], outf.name))
             for file in files_to_merge:
                 #print "input file is {0}".format(file)
@@ -65,12 +86,37 @@ def main(rest_enzyme, root_path = os.getcwd(), pattern=r'*1.fastq*', output_dir=
                     for line in inf:
                         outf.write(line)
         _, columns = os.popen('stty size', 'r').read().split()
+        columns = int(columns)
         if not columns:
             columns = 80
+        # TODO: print this to the log file too
         print("-"*columns + "\n\n")
 
-        # TODO: implement denovo_map.pl execution on all these files
+        # TODO, maybe: implement denovo_map.pl execution on all these files
 
 if __name__=="__main__":
-    #parser = argparse.ArgumentParser(description="Run process_radtags on paired-end fastq files using the SciLifeLab naming conventions.")
-    main(rest_enzyme="ecoRI")
+    enzyme_choices = ('apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I', 'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII',
+                      'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI', 'sgrAI', 'sphI', 'taqI', 'xbaI')
+    parser = argparse.ArgumentParser(description="Run process_radtags on paired-end fastq files using the SciLifeLab naming conventions.")
+    parser.add_argument("-o", "--output-dir", dest="output_dir", default="process_radtags_output",
+                        help="The output directory in which to store processed files and logs. Default process_radtags_output.")
+    parser.add_argument("-f", "--overwrite-output-dir", action="store_true", dest="overwrite_output_dir",
+                        help="Overwrite output directory if it already exists. Default is false.")
+    parser.add_argument("-i", "--input-dir", dest="input_dir", default=os.getcwd(), help="The input directory to search for data. Default cwd.")
+    parser.add_argument("-p", "--file-pattern", dest="file_pattern", default="*_1.fastq*",
+                        help="The pattern to use to locate files to be processed. Should correspond to read 1. Default \"*_1.fastq*\".")
+    parser.add_argument("-n", "--no-merge", action="store_false", dest="merge",
+                        help="Whether or not to merge processed reads from paired-end fastq files into one final output file. Default true.")
+    parser.add_argument("-e", "--rest-enzyme", dest="rest_enzyme_list", action="append", required=True,
+                        help="""The restriction enzyme used to digest the genomic DNA; can be used up to twice.
+                                Currently supported enzymes include:
+
+                                    'apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I', 
+                                    'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII', 
+                                    'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI', 
+                                    'sgrAI', 'sphI', 'taqI', or 'xbaI'.
+
+                                Default is ecoRI.
+                                """)
+    args = vars(parser.parse_args())
+    main(**args)
