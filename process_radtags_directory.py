@@ -14,7 +14,7 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
     if not rest_enzyme_list:
         raise ValueError("No restriction enzyme specified; this is a required value.")
     if len(rest_enzyme_list) > 2:
-        print >>sys.stderr, "Too many enzymes specified ({0}). Truncating to first two enzymes (\"{}\" and \"{}\").".format(
+        print >>sys.stderr, "Too many enzymes specified ({0}). Truncating to first two enzymes (\"{0}\" and \"{1}\").".format(
                                                             len(rest_enzyme_list), rest_enzyme_list[0], rest_enzyme_list[1])
         rest_enzmye_list = rest_enzyme_list[:2]
     for rest_enzyme in rest_enzyme_list:
@@ -37,12 +37,12 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
                                           "merge_file"  : "{0}.fastq".format(m.group('file_name')),})
 
     if not files_to_process:
-        raise ValueError("No files matching pattern \"{}\" found under directory {}. Exiting.".format(file_pattern))
+        raise ValueError("No files matching pattern \"{0}\" found under directory {1}. Exiting.".format(file_pattern))
 
     # Create the output directory if it does not exist
     if os.path.exists(output_dir):
         if not overwrite_output_dir:
-            raise OSError("Output directory \"{}\" exists; will not overwrite.".format(output_dir))
+            raise OSError("Output directory \"{0}\" exists; will not overwrite.".format(output_dir))
     else:
         os.makedirs(output_dir)
 
@@ -50,9 +50,9 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
     for pair in files_to_process:
         cl =  ["process_radtags"]
         cl += ["-c", "-q", "--filter_illumina"]
-        cl += ["-e", rest_enzyme_list.pop(0)]
-        if rest_enzyme_list:
-            cl += ["--renz_2", rest_enzyme_list.pop(0)]
+        cl += ["-e", rest_enzyme_list[0]]
+        if len(rest_enzyme_list) > 1:
+            cl += ["--renz_2", rest_enzyme_list[1]]
         if pair["gzip"]:
             cl += ["-i", "gzfastq"]
         cl += ["-o", output_dir]
@@ -60,37 +60,37 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
             cl += ["-1", pair["files"][0], "-2", pair["files"][1]]
         else:
             cl += ["-f", pair["files"][0]]
-        if merge:
-            cl += ["--merge"]
+        #if merge:
+        #    cl += ["--merge"]
         # Execute
         subprocess.check_call(cl)
 
     # Merge individual reads into one file per sample
-        files_to_merge = []
-        merge_output_dir = os.path.join(output_dir, "merged")
-        if not os.path.exists(merge_output_dir):
-            os.makedirs(merge_output_dir)
-        for file_to_merge in pair["files"]:
-            file_to_merge = os.path.basename(file_to_merge)
-            if pair["gzip"]:
-                file_to_merge = os.path.splitext(file_to_merge)[0]
-            file_to_merge = os.path.join(output_dir, file_to_merge)
-            files_to_merge.append(file_to_merge)
-
-        with open(os.path.join(output_dir, pair["merge_file"]), 'a+') as outf:
-            # TODO: print this to the log file
-            print("Merging files \"{0}\" and \"{1}\" into file \"{2}\"\n".format(files_to_merge[0], files_to_merge[1], outf.name))
-            for file in files_to_merge:
-                #print "input file is {0}".format(file)
-                with open(file) as inf:
-                    for line in inf:
-                        outf.write(line)
-        _, columns = os.popen('stty size', 'r').read().split()
-        columns = int(columns)
-        if not columns:
-            columns = 80
-        # TODO: print this to the log file too
-        print("-"*columns + "\n\n")
+        if merge:
+            files_to_merge = []
+            merge_output_dir = os.path.join(output_dir, "merged")
+            if not os.path.exists(merge_output_dir):
+                os.makedirs(merge_output_dir)
+            for file_to_merge in pair["files"]:
+                file_to_merge = os.path.basename(file_to_merge)
+                if pair["gzip"]:
+                    file_to_merge = os.path.splitext(file_to_merge)[0]
+                file_to_merge = os.path.join(output_dir, file_to_merge)
+                files_to_merge.append(file_to_merge)
+            with open(os.path.join(output_dir, pair["merge_file"]), 'a+') as outf:
+                # TODO: print this to the log file
+                print("Merging files\n\t\"{0}\" and\n\t\"{1}\" into file\n\t\"{2}\"".format(files_to_merge[0], files_to_merge[1], outf.name))
+                for file in files_to_merge:
+                    #print "input file is {0}".format(file)
+                    with open(file) as inf:
+                        for line in inf:
+                            outf.write(line)
+            _, columns = os.popen('stty size', 'r').read().split()
+            columns = int(columns)
+            if not columns:
+                columns = 80
+            # TODO: print this to the log file too
+            print("-"*columns + "\n\n")
 
         # TODO, maybe: implement denovo_map.pl execution on all these files
 
