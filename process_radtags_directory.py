@@ -3,7 +3,6 @@
 import argparse
 import fnmatch
 import os
-#import pprint
 import re
 import subprocess
 
@@ -17,6 +16,8 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
         print >>sys.stderr, "Too many enzymes specified ({0}). Truncating to first two enzymes (\"{0}\" and \"{1}\").".format(
                                                             len(rest_enzyme_list), rest_enzyme_list[0], rest_enzyme_list[1])
         rest_enzmye_list = rest_enzyme_list[:2]
+    # TODO: automatically format the input parameter to match the reqired input parameter for stacks
+    #       e.g. ecori becomes ecoRI
     for rest_enzyme in rest_enzyme_list:
         if rest_enzyme not in enzyme_choices:
             raise ValueError("Restriction enzyme \"{0}\" invalid. Valid values include:\n{1}".format(rest_enzyme, ", ".join(enzyme_choices)))
@@ -77,7 +78,7 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
                     file_to_merge = os.path.splitext(file_to_merge)[0]
                 file_to_merge = os.path.join(output_dir, file_to_merge)
                 files_to_merge.append(file_to_merge)
-            with open(os.path.join(output_dir, pair["merge_file"]), 'a+') as outf:
+            with open(os.path.join(merge_output_dir, pair["merge_file"]), 'a+') as outf:
                 # TODO: print this to the log file
                 print("Merging files\n\t\"{0}\" and\n\t\"{1}\" into file\n\t\"{2}\"".format(files_to_merge[0], files_to_merge[1], outf.name))
                 for file in files_to_merge:
