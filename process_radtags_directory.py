@@ -13,7 +13,7 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
     if not rest_enzyme_list:
         raise ValueError("No restriction enzyme specified; this is a required value.")
     if len(rest_enzyme_list) > 2:
-        print >>sys.stderr, "Too many enzymes specified ({0}). Truncating to first two enzymes (\"{0}\" and \"{1}\").".format(
+        print >>sys.stderr, "Too many enzymes specified ({0}). Truncating to first two enzymes (\"{1}\" and \"{2}\").".format(
                                                             len(rest_enzyme_list), rest_enzyme_list[0], rest_enzyme_list[1])
         rest_enzmye_list = rest_enzyme_list[:2]
     # TODO: automatically format the input parameter to match the reqired input parameter for stacks
