@@ -1,10 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+"""
+Process fastq files throughout a given directory with the specified enzymatic cut sites present.
+Runs process_radtags from the Stacks software. Merging fastq files when appropriate.
+"""
+
+from __future__ import print_function
 
 import argparse
 import fnmatch
 import os
 import re
 import subprocess
+import sys
 
 def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fastq*', output_dir='process_radtags_output', merge=True, overwrite_output_dir=False):
     enzyme_choices = ('apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I', 'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII',
@@ -13,8 +20,8 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
     if not rest_enzyme_list:
         raise ValueError("No restriction enzyme specified; this is a required value.")
     if len(rest_enzyme_list) > 2:
-        print >>sys.stderr, "Too many enzymes specified ({0}). Truncating to first two enzymes (\"{1}\" and \"{2}\").".format(
-                                                            len(rest_enzyme_list), rest_enzyme_list[0], rest_enzyme_list[1])
+        print("Too many enzymes specified ({0}). Truncating to first two enzymes (\"{1}\" and \"{2}\").".format(
+                                                            len(rest_enzyme_list), rest_enzyme_list[0], rest_enzyme_list[1]), file=sys.stderr)
         rest_enzmye_list = rest_enzyme_list[:2]
     # TODO: automatically format the input parameter to match the reqired input parameter for stacks
     #       e.g. ecori becomes ecoRI
@@ -80,7 +87,7 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
                 files_to_merge.append(file_to_merge)
             with open(os.path.join(merge_output_dir, pair["merge_file"]), 'a+') as outf:
                 # TODO: print this to the log file
-                print("Merging files\n\t\"{0}\" and\n\t\"{1}\" into file\n\t\"{2}\"".format(files_to_merge[0], files_to_merge[1], outf.name))
+                print("Merging files\n\t\"{0}\" and\n\t\"{1}\" into file\n\t\"{2}\"".format(files_to_merge[0], files_to_merge[1], outf.name), file=sys.stderr)
                 for file in files_to_merge:
                     #print "input file is {0}".format(file)
                     with open(file) as inf:
@@ -91,7 +98,7 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
             if not columns:
                 columns = 80
             # TODO: print this to the log file too
-            print("-"*columns + "\n\n")
+            print("-"*columns + "\n\n", file=sys.stderr)
 
         # TODO, maybe: implement denovo_map.pl execution on all these files
 
@@ -99,12 +106,12 @@ if __name__=="__main__":
     enzyme_choices = ('apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I', 'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII',
                       'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI', 'sgrAI', 'sphI', 'taqI', 'xbaI')
     parser = argparse.ArgumentParser(description="Run process_radtags on paired-end fastq files using the SciLifeLab naming conventions.")
-    parser.add_argument("-o", "--output-dir", dest="output_dir", default="process_radtags_output",
+    parser.add_argument("-o", "--output-dir", default="process_radtags_output",
                         help="The output directory in which to store processed files and logs. Default process_radtags_output.")
-    parser.add_argument("-f", "--overwrite-output-dir", action="store_true", dest="overwrite_output_dir",
+    parser.add_argument("-f", "--overwrite-output-dir", action="store_true",
                         help="Overwrite output directory if it already exists. Default is false.")
-    parser.add_argument("-i", "--input-dir", dest="input_dir", default=os.getcwd(), help="The input directory to search for data. Default cwd.")
-    parser.add_argument("-p", "--file-pattern", dest="file_pattern", default="*_1.fastq*",
+    parser.add_argument("-i", "--input-dir", default=os.getcwd(), help="The input directory to search for data. Default cwd.")
+    parser.add_argument("-p", "--file-pattern", default="*_1.fastq*",
                         help="The pattern to use to locate files to be processed. Should correspond to read 1. Default \"*_1.fastq*\".")
     parser.add_argument("-n", "--no-merge", action="store_false", dest="merge",
                         help="Whether or not to merge processed reads from paired-end fastq files into one final output file. Default true.")
@@ -112,9 +119,9 @@ if __name__=="__main__":
                         help="""The restriction enzyme used to digest the genomic DNA; can be used up to twice.
                                 Currently supported enzymes include:
 
-                                    'apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I', 
-                                    'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII', 
-                                    'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI', 
+                                    'apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I',
+                                    'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII',
+                                    'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI',
                                     'sgrAI', 'sphI', 'taqI', or 'xbaI'.
 
                                 Default is ecoRI.
