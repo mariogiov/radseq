@@ -14,21 +14,18 @@ import subprocess
 import sys
 
 def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fastq*', output_dir='process_radtags_output', paired_end=False, overwrite_output_dir=False):
-
-    enzyme_choices = ('apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I', 'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII',
-                      'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI', 'sgrAI', 'sphI', 'taqI', 'xbaI')
+    enzyme_choices = ('apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I', 'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI',
+                      'nheI', 'nlaIII', 'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI', 'sgrAI', 'sphI', 'taqI', 'xbaI')
     enzyme_choices_lower = map(str.lower, enzyme_choices)
-
     if not rest_enzyme_list:
         raise ValueError("No restriction enzyme specified; this is a required value.")
     if len(rest_enzyme_list) > 2:
         print("Too many enzymes specified ({0}). Truncating to first two enzymes (\"{1}\" and \"{2}\").".format(
-                                                            len(rest_enzyme_list), rest_enzyme_list[0], rest_enzyme_list[1]), file=sys.stderr)
+               len(rest_enzyme_list), rest_enzyme_list[0], rest_enzyme_list[1]), file=sys.stderr)
         rest_enzmye_list = rest_enzyme_list[:2]
     for rest_enzyme in rest_enzyme_list:
         if rest_enzyme.lower() not in enzyme_choices_lower:
             raise ValueError("Restriction enzyme \"{0}\" invalid. Valid values include:\n{1}".format(rest_enzyme, ", ".join(enzyme_choices)))
-
     files_to_process = []
     input_dir = os.path.abspath(input_dir)
     ## TODO this is a hack but fix this later so you don't have to write the same function twice in a row
@@ -38,8 +35,7 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
         for root, dirs, files in os.walk(input_dir):
             read_1_files = fnmatch.filter(files, file_pattern)
             for filename in read_1_files:
-                ## TODO Misses ".gzip" gzipped files
-                m = re.match('(?P<file_name>.*)_1.fastq(?P<gzip_ext>.gz)', filename)
+                m = re.match('(?P<file_name>.*)_1.fastq(?P<gzip_ext>.gz\w{0,2})', filename)
                 if m:
                     read_1 = filename
                     read_2_string = "{0}_2.fastq{1}".format(m.group('file_name'), m.group('gzip_ext'))
@@ -58,17 +54,18 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
                                             "merge_file"    :   None})
     if not files_to_process:
         raise ValueError("No files matching pattern \"{0}\" found under directory \"{1}\". Exiting.".format(file_pattern, input_dir))
-
     # Create the output directory if it does not exist
     if os.path.exists(output_dir):
         if not overwrite_output_dir:
             raise OSError("Output directory \"{0}\" exists; will not overwrite.".format(output_dir))
     else:
         os.makedirs(output_dir)
-
     # Build the command
     for pair in files_to_process:
         cl =  ["process_radtags"]
+        # -c : clean reads (remove reads with N)
+        # -q : discard reads with low quality scores
+        # --filter_illumina : discard reads marked as failed by CASAVA (~redundant)
         cl += ["-c", "-q", "--filter_illumina"]
         # Rescue radtags
         cl += ["-r"]
@@ -131,9 +128,9 @@ if __name__=="__main__":
                                 Currently supported enzymes include:
 
                                     'apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I',
-                                    'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nlaIII',
-                                    'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI', 'sexAI',
-                                    'sgrAI', 'sphI', 'taqI', or 'xbaI'.
+                                    'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nheI',
+                                    'nlaIII', 'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI',
+                                    'sexAI, 'sgrAI', 'sphI', 'taqI', or 'xbaI'.
 
                                 Default is ecoRI.
                                 """)
