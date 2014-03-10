@@ -70,6 +70,8 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
     for pair in files_to_process:
         cl =  ["process_radtags"]
         cl += ["-c", "-q", "--filter_illumina"]
+        # Rescue radtags
+        cl += ["-r"]
         cl += ["-e", rest_enzyme_list[0]]
         if len(rest_enzyme_list) > 1:
             cl += ["--renz_2", rest_enzyme_list[1]]
@@ -83,7 +85,7 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
         subprocess.check_call(cl)
 
     # Merge individual reads into one file per sample
-        if paired_end and len(pair["files"] > 1):
+        if paired_end and len(pair["files"]) > 1:
             files_to_merge = []
             merge_output_dir = os.path.join(output_dir, "merged")
             if not os.path.exists(merge_output_dir):
