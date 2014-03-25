@@ -2,6 +2,13 @@
 """
 Process fastq files throughout a given directory with the specified enzymatic cut sites present.
 Runs process_radtags from the Stacks software. Merging fastq files when appropriate.
+
+
+This entire script is more or less replaceable by
+
+    parallel 'r1={}; process_radtags -c -q --filter_illumina -r -e ecoRI -i gzfastq -o process_radtags_output_parallel -1 $r1 -2 ${r1/_1./_2.}' ::: *_1.fastq.gz
+
+and would probably never had been born if I knew about gnu parallel at its inception.
 """
 
 from __future__ import print_function
@@ -15,10 +22,10 @@ import sys
 
 def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fastq*',
          output_dir='process_radtags_output', overwrite_output_dir=False):
-    enzyme_choices = ('apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I',
-                      'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nheI',
-                      'nlaIII', 'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI',
-                      'sexAI', 'sgrAI', 'sphI', 'taqI', 'xbaI')
+    enzyme_choices = ('apeKI', 'bamHI', 'claI', 'dpnII', 'eaeI', 'ecoRI',
+                      'ecoT22I', 'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI',
+                      'nheI', 'nlaIII', 'notI', 'nsiI', 'pstI', 'sau3AI',
+                      'sbfI', 'sexAI', 'sgrAI', 'sphI', 'taqI', 'xbaI')
     enzyme_choices_lower = map(str.lower, enzyme_choices)
     if not rest_enzyme_list:
         raise ValueError("No restriction enzyme specified; this is a required value.")
@@ -31,6 +38,7 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
         if rest_enzyme.lower() not in enzyme_choices_lower:
             raise ValueError("Restriction enzyme \"{0}\" invalid. Valid values " \
                              "include:\n{1}".format(rest_enzyme, ", ".join(enzyme_choices)))
+            ## TODO call fails if i write e.g. ecori instead of ecoRI. Fix
     files_to_process = []
     input_dir = os.path.abspath(input_dir)
     naming_pattern = re.compile('(?P<file_name>.+?)(?P<read_number>_1){0,1}.fastq(?P<gzip_ext>.gz\w{0,2})')
@@ -42,15 +50,19 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
             if m:
                 sample_info = { "files": [ os.path.abspath(os.path.join(root, filename)) ],
                                 "gzip" : m.group('gzip_ext')}
+                print("Found sequencing data file:\t{}".format(sample_info['files'][0]), file=sys.stderr)
                 if m.groupdict()["read_number"]:
                     # Read is one of a pair (paired-end data)
+                    ## TODO this doesn't work if there is a non-standard file naming system
                     read_2 = os.path.abspath("{0}_2.fastq{1}".format(
                                      m.group('file_name'), m.group('gzip_ext')))
                     #read_2 = files.pop(files.index(read_2_string))
                     if os.path.exists(read_2):
                         sample_info['files'].append(read_2)
+                        print("     ...with matching file:\t{}".format(read_2), file=sys.stderr)
                     merge_file = "{0}.fastq".format(m.group('file_name'))
                     sample_info["merge_file"] = "{0}.fastq".format(m.group('file_name'))
+                    #print("Processing matching pair: {} and {}".format(read_1, read_2))
                 files_to_process.append(sample_info)
     if not files_to_process:
         raise ValueError("No files matching pattern \"{0}\" found under directory" \
@@ -81,7 +93,9 @@ def main(rest_enzyme_list = None, input_dir = os.getcwd(), file_pattern='*_1.fas
             cl += ["-1", sample_set["files"][0], "-2", sample_set["files"][1]]
         else:
             cl += ["-f", sample_set["files"][0]]
+        print("Executing ctommand line: \"{}\"".format(" ".join(cl)), file=sys.stderr)
         subprocess.check_call(cl)
+
         # Merge individual reads into one file per sample
         if len(sample_set["files"]) > 1:
             files_to_merge = []
@@ -117,18 +131,19 @@ if __name__=="__main__":
     parser.add_argument("-f", "--overwrite-output-dir", action="store_true",
                         help="Overwrite output directory if it already exists. Default is false.")
     parser.add_argument("-i", "--input-dir", default=os.getcwd(), help="The input directory to search for data. Default cwd.")
-    parser.add_argument("-m", "--file-pattern", default="*_1.fastq*",
-                        help="The pattern to use to locate files to be processed. Should correspond to read 1. Default \"*_1.fastq*\".")
+    #parser.add_argument("-m", "--file-pattern", default="*_1.fastq*",
+    #                    help="The pattern to use to locate files to be processed. Should correspond to read 1. Default \"*_1.fastq*\". " +
+    #                         "Note that autodetection of paired-end files is not supported for custom patterns.")
     #parser.add_argument("-p", "--paired-end", action="store_true", dest="paired_end",
     #                    help="Files are paired-end and should be merged after processing. Default false.")
     parser.add_argument("-e", "--rest-enzyme", dest="rest_enzyme_list", action="append", required=True,
                         help="""The restriction enzyme used to digest the genomic DNA; can be used up to twice.
                                 Currently supported enzymes include:
 
-                                    'apeKI', 'bamHI', 'dpnII', 'eaeI', 'ecoRI', 'ecoT22I',
-                                    'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI', 'nheI',
-                                    'nlaIII', 'notI', 'nsiI', 'pstI', 'sau3AI', 'sbfI',
-                                    'sexAI, 'sgrAI', 'sphI', 'taqI', or 'xbaI'.
+                                    'apeKI', 'bamHI', 'claI', 'dpnII', 'eaeI', 'ecoRI',
+                                    'ecoT22I', 'hindIII', 'mluCI', 'mseI', 'mspI', 'ndeI',
+                                    'nheI', 'nlaIII', 'notI', 'nsiI', 'pstI', 'sau3AI',
+                                    'sbfI','sexAI, 'sgrAI', 'sphI', 'taqI', or 'xbaI'.
                                 """)
     ## TODO add --quiet option that just prints a progress bar
     args = vars(parser.parse_args())
