@@ -80,8 +80,7 @@ if __name__ == "__main__":
                                      "and determine both what percentage of fragments "
                                      "fall into the target range as well as what "
                                      "percentage of fragments in this range will "
-                                     "represent usable reads. Requires Biopieces "
-                                     "and thus all its dependencies.")
+                                     "represent usable reads.")
     parser.add_argument("-i", "--input-fasta", required=True,
             help=("The path to the input fasta file containing the sequence "
                   "to be digested."))
