@@ -34,19 +34,16 @@ def find_files(wildcards):
 
 
 rule all:
-    #input: expand("02_trimmed/{user_name}-{sll_name}-trimmed.fastq", zip, user_name=USER_NAMES, sll_name=SLL_NAMES)
-    #input: "stacks/03_process_radtags/{sample}.fastq"
-    input: expand("stacks/04_ustacks/{sample_name}.{type}.tsv", sample_name=SAMPLE_NAMES, type=["alleles", "snps", "tags"])
+    #input: expand("stacks/04_denovo_map/{sample_name}.{type}.tsv", sample_name=SAMPLE_NAMES, type=["alleles", "snps", "tags"])
+    input: expand("stacks/04_denovo_map/batch_1.catalog.{type}.tsv", type=["alleles", "snps", "tags"])
 
 
 rule merge_reads:
     input: find_files
     output: "stacks/01_merged/{user_name}-{sll_name}.fastq.gz"
-    #log: "stacks/01_merged/merge.log"
     run:
         # Each input is made up of two files (paired-end reads); need to be handled separately
         for input_file in input:
-            #shell("cat {input_file} >> {output} 2>>{log}")
             shell("cat {input_file} >> {output}")
 
 rule trim_files:
@@ -73,7 +70,6 @@ rule process_radtags:
         #shell("module load Stacks")
         shell("process_radtags -c -q --filter_illumina -r -e ecoRI -i fastq "
               "-f {input} -o {output_dir} -D 2>>{log}")
-        #shell("mv {output.discards_ihatestacks} {output.discards}")
 
 #rule process_radtags_organize:
 #    input:
@@ -90,13 +86,34 @@ rule process_radtags:
 
 rule ustacks:
     input: "stacks/03_process_radtags/{sample}.fq"
-    output:
-        alleles="stacks/04_ustacks/{sample}.alleles.tsv",
-        snps="stacks/04_ustacks/{sample}.snps.tsv",
-        tags="stacks/04_ustacks/{sample}.tags.tsv"
-    log: "stacks/04_ustacks/ustacks.log"
+    output: #"stacks/04_denovo_map/{sample}.{type}.tsv"
+        alleles="stacks/04_denovo_map/{sample}.alleles.tsv",
+        snps="stacks/04_denovo_map/{sample}.snps.tsv",
+        tags="stacks/04_denovo_map/{sample}.tags.tsv"
+    log: "stacks/04_denovo_map/ustacks.log"
     run:
         output_dir = os.path.split(str(output.alleles))[0]
+        #output_dir = os.path.split(str(output))[0]
         for index, input_file in enumerate(input):
             shell("ustacks -p 16 -t fastq -f {input} -o {output_dir} -m 5 "
                    "-M 2 -N 4 -i {index} 2>>{log}")
+
+rule cstacks:
+    input:
+        alleles="stacks/04_denovo_map/{sample,^[^.]}.alleles.tsv",
+        snps="stacks/04_denovo_map/{sample,^[^.]}.snps.tsv",
+        tags="stacks/04_denovo_map/{sample,^[^.]}.tags.tsv"
+        #alleles="stacks/04_denovo_map/{sample}.alleles.tsv",
+        #snps="stacks/04_denovo_map/{sample}.snps.tsv",
+        #tags="stacks/04_denovo_map/{sample}.tags.tsv"
+    output:
+       alleles="stacks/04_denovo_map/batch_1.catalog.alleles.tsv",
+       snps="stacks/04_denovo_map/batch_1.catalog.snps.tsv",
+       tags="stacks/04_denovo_map/batch_1.catalog.tags.tsv"
+    log: "stacks/04_denovo_map/cstacks.log"
+    run:
+        output_dir = os.path.split(str(output)[0])[0]
+        cl = "cstacks -n 2 -b 1 -p 4 -o {output_dir}" + " -s ".join(SAMPLE_NAMES)
+        shell(cl)
+
+#cstacks -n 2 -b 1 -p 16 $(for file in $(for each in ../04_process_radtags/*.fastq; do file=$(basename $each); echo ${file%%.*}; done); do echo -n " -s $file"; done)
