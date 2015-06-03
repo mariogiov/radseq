@@ -26,6 +26,7 @@ for input_file in glob.glob("*/*/*.fastq*"):
 sll_substring = re.compile(r'(?P<file_base>P\w+)_[12]')
 SLL_NAMES = [ sll_substring.search(x).groups()[0] for x in FASTQS ]
 USER_NAMES = [ os.path.basename(x) for x in USER_NAMES ]
+SAMPLE_NAMES = ["{}-{}".format(user_name, sll_name) for user_name, sll_name in zip(USER_NAMES, SLL_NAMES)]
 
 def find_files(wildcards):
     files = glob.glob('{wildcards.user_name}/*/*_{wildcards.sll_name}_[12].fastq.gz'.format(wildcards=wildcards))
@@ -34,9 +35,8 @@ def find_files(wildcards):
 
 rule all:
     #input: expand("02_trimmed/{user_name}-{sll_name}-trimmed.fastq", zip, user_name=USER_NAMES, sll_name=SLL_NAMES)
-    #input: ["stacks/03_process_radtags/{}-{}-trimmed.fastq".format(user_name, sll_name) for user_name, sll_name in zip(USER_NAMES, SLL_NAMES)]
-    input: ["stacks/04_ustacks/{}-{}-trimmed.fastq".format(user_name, sll_name) for user_name, sll_name in zip(USER_NAMES, SLL_NAMES)]
     #input: "stacks/03_process_radtags/{sample}.fastq"
+    input: expand("stacks/04_ustacks/{sample_name}.{type}.tsv", sample_name=SAMPLE_NAMES, type=["alleles", "snps", "tags"])
 
 
 rule merge_reads:
@@ -52,7 +52,7 @@ rule merge_reads:
 rule trim_files:
     input: "stacks/01_merged/{sample}.fastq.gz"
     output: 
-        keep="stacks/02_trimmed/{sample}-trimmed.fastq",
+        keep="stacks/02_trimmed/{sample}.fastq",
         discard="stacks/02_trimmed/trimmed-discarded/{sample}-trimmed-discarded.fastq"
     log: "stacks/02_trimmed/{sample}.log"
     shell:
@@ -90,10 +90,13 @@ rule process_radtags:
 
 rule ustacks:
     input: "stacks/03_process_radtags/{sample}.fq"
-    output: "stacks/04_ustacks/{sample}.fastq"
+    output:
+        alleles="stacks/04_ustacks/{sample}.alleles.tsv",
+        snps="stacks/04_ustacks/{sample}.snps.tsv",
+        tags="stacks/04_ustacks/{sample}.tags.tsv"
     log: "stacks/04_ustacks/ustacks.log"
     run:
-        output_dir = os.path.split(str(output))[0]
+        output_dir = os.path.split(str(output.alleles))[0]
         for index, input_file in enumerate(input):
-            shell(("ustacks -p 16 -t fastq -f {input} -o {output} -m 5 "
-                   "-M 2 -N 4 -i {index} 2>>{log}"))
+            shell("ustacks -p 16 -t fastq -f {input} -o {output_dir} -m 5 "
+                   "-M 2 -N 4 -i {index} 2>>{log}")
