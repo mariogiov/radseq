@@ -2,8 +2,6 @@ import glob
 import re
 
 ## TODO add configuration file for enzyme, various stacks parameters
-## TODO add ustacks
-## TODO add cstacks
 ## TODO add sstacks
 ## TODO add QC steps, visualization?
 ## TODO add parameter tuning using the various samples
@@ -72,28 +70,11 @@ rule process_radtags:
         shell("process_radtags -c -q --filter_illumina -r -e ecoRI -i fastq "
               "-f {input} -o {output_dir} -D 2>>{log}")
 
-#rule process_radtags_organize:
-#    input:
-#        sample="stacks/03_process_radtags/{sample}.fastq",
-#        discards="stacks/03_process_radtags/{sample}.fastq.discards"
-#    output:
-#        sample="stacks/03_process_radtags/{sample}-PR.fastq",
-#        discards="stacks/03_process_radtags/discards/{sample}.fastq.discards"
-#    shell:
-#        """
-#        mv {input.sample} {output.sample}
-#        mv {input.discards} {output.discards}
-#        """
-
 rule ustacks:
     input: expand("stacks/03_process_radtags/{sample}.fq", sample=SAMPLE_NAMES)
     output: expand("stacks/04_denovo_map/{sample}.{type}.tsv", sample=SAMPLE_NAMES, type=TYPES)
-        #alleles="stacks/04_denovo_map/{sample}.alleles.tsv",
-        #snps="stacks/04_denovo_map/{sample}.snps.tsv",
-        #tags="stacks/04_denovo_map/{sample}.tags.tsv"
     log: "stacks/04_denovo_map/ustacks.log"
     run:
-        #output_dir = os.path.split(str(output.alleles))[0]
         output_dir = os.path.split(str(output[0]))[0]
         for index, input_file in enumerate(input):
             shell("ustacks -p 16 -t fastq -f {input} -o {output_dir} -m 5 "
@@ -102,14 +83,8 @@ rule ustacks:
 rule cstacks:
     input: rules.ustacks.output
     output: expand("stacks/04_denovo_map/batch_1.catalog.{type}.tsv", type=TYPES)
-       #alleles="stacks/04_denovo_map/batch_1.catalog.alleles.tsv",
-       #snps="stacks/04_denovo_map/batch_1.catalog.snps.tsv",
-       #tags="stacks/04_denovo_map/batch_1.catalog.tags.tsv"
     log: "stacks/04_denovo_map/cstacks.log"
     run:
-        #output_dir = os.path.split(str(output)[0])[0]
         output_dir = "stacks/04_denovo_map"
         input_samples_str = " -s stacks/04_denovo_map/".join(SAMPLE_NAMES)
         shell("cstacks -n 2 -b 1 -p 4 -o {output_dir} {input_samples_str} 2>{log}")
-
-#cstacks -n 2 -b 1 -p 16 $(for file in $(for each in ../04_process_radtags/*.fastq; do file=$(basename $each); echo ${file%%.*}; done); do echo -n " -s $file"; done)
