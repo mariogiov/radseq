@@ -42,11 +42,12 @@ rule all:
 rule merge_reads:
     input: find_files
     output: "stacks/01_merged/{user_name}-{sll_name}.fastq.gz"
-    log: "stacks/01_merged/merge.log"
+    #log: "stacks/01_merged/merge.log"
     run:
         # Each input is made up of two files (paired-end reads); need to be handled separately
         for input_file in input:
-            shell("cat {input_file} >> {output} 2>>{log}")
+            #shell("cat {input_file} >> {output} 2>>{log}")
+            shell("cat {input_file} >> {output}")
 
 rule trim_files:
     input: "stacks/01_merged/{sample}.fastq.gz"
@@ -63,14 +64,16 @@ rule trim_files:
 
 rule process_radtags:
     input: "stacks/02_trimmed/{sample}.fastq"
-    output: "stacks/03_process_radtags/{sample}.fastq",
+    output:
+        retained="stacks/03_process_radtags/{sample}.fq",
     log: "stacks/03_process_radtags/serial_process.log"
     run:
-        output_dir = os.path.split(str(output))[0]
+        output_dir = os.path.split(str(output.retained))[0]
         #shell("module load bioinfo-tools")
         #shell("module load Stacks")
-        shell(("process_radtags -c -q --filter_illumina -r -e ecoRI -i fastq "
-              "-f {input} -D {output_dir} 2>&1 >> {log}"))
+        shell("process_radtags -c -q --filter_illumina -r -e ecoRI -i fastq "
+              "-f {input} -o {output_dir} -D 2>>{log}")
+        #shell("mv {output.discards_ihatestacks} {output.discards}")
 
 #rule process_radtags_organize:
 #    input:
@@ -86,10 +89,11 @@ rule process_radtags:
 #        """
 
 rule ustacks:
-    input: "stacks/03_process_radtags/{sample}.fastq"
+    input: "stacks/03_process_radtags/{sample}.fq"
     output: "stacks/04_ustacks/{sample}.fastq"
+    log: "stacks/04_ustacks/ustacks.log"
     run:
-        output_dir = os.path.split(output.file)[0]
+        output_dir = os.path.split(str(output))[0]
         for index, input_file in enumerate(input):
-            shell(("ustacks -p 16 -t fastq -f {input_file} -o {output_dir} -m 5 "
-                   "-M 2 -N 4 -i {index}"))
+            shell(("ustacks -p 16 -t fastq -f {input} -o {output} -m 5 "
+                   "-M 2 -N 4 -i {index} 2>>{log}"))
