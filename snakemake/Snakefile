@@ -27,6 +27,7 @@ sll_substring = re.compile(r'(?P<file_base>P\w+)_[12]')
 SLL_NAMES = [ sll_substring.search(x).groups()[0] for x in FASTQS ]
 USER_NAMES = [ os.path.basename(x) for x in USER_NAMES ]
 SAMPLE_NAMES = ["{}-{}".format(user_name, sll_name) for user_name, sll_name in zip(USER_NAMES, SLL_NAMES)]
+TYPES = ["alleles", "snps", "tags"]
 
 def find_files(wildcards):
     files = glob.glob('{wildcards.user_name}/*/*_{wildcards.sll_name}_[12].fastq.gz'.format(wildcards=wildcards))
@@ -34,8 +35,8 @@ def find_files(wildcards):
 
 
 rule all:
-    #input: expand("stacks/04_denovo_map/{sample_name}.{type}.tsv", sample_name=SAMPLE_NAMES, type=["alleles", "snps", "tags"])
-    input: expand("stacks/04_denovo_map/batch_1.catalog.{type}.tsv", type=["alleles", "snps", "tags"])
+    #input: expand("stacks/04_denovo_map/{sample_name}.{type}.tsv", sample_name=SAMPLE_NAMES, type=TYPES)
+    input: expand("stacks/04_denovo_map/batch_1.catalog.{type}.tsv", type=TYPES)
 
 
 rule merge_reads:
@@ -85,35 +86,30 @@ rule process_radtags:
 #        """
 
 rule ustacks:
-    input: "stacks/03_process_radtags/{sample}.fq"
-    output: #"stacks/04_denovo_map/{sample}.{type}.tsv"
-        alleles="stacks/04_denovo_map/{sample}.alleles.tsv",
-        snps="stacks/04_denovo_map/{sample}.snps.tsv",
-        tags="stacks/04_denovo_map/{sample}.tags.tsv"
+    input: expand("stacks/03_process_radtags/{sample}.fq", sample=SAMPLE_NAMES)
+    output: expand("stacks/04_denovo_map/{sample}.{type}.tsv", sample=SAMPLE_NAMES, type=TYPES)
+        #alleles="stacks/04_denovo_map/{sample}.alleles.tsv",
+        #snps="stacks/04_denovo_map/{sample}.snps.tsv",
+        #tags="stacks/04_denovo_map/{sample}.tags.tsv"
     log: "stacks/04_denovo_map/ustacks.log"
     run:
-        output_dir = os.path.split(str(output.alleles))[0]
-        #output_dir = os.path.split(str(output))[0]
+        #output_dir = os.path.split(str(output.alleles))[0]
+        output_dir = os.path.split(str(output[0]))[0]
         for index, input_file in enumerate(input):
             shell("ustacks -p 16 -t fastq -f {input} -o {output_dir} -m 5 "
                    "-M 2 -N 4 -i {index} 2>>{log}")
 
 rule cstacks:
-    input:
-        alleles="stacks/04_denovo_map/{sample,^[^.]}.alleles.tsv",
-        snps="stacks/04_denovo_map/{sample,^[^.]}.snps.tsv",
-        tags="stacks/04_denovo_map/{sample,^[^.]}.tags.tsv"
-        #alleles="stacks/04_denovo_map/{sample}.alleles.tsv",
-        #snps="stacks/04_denovo_map/{sample}.snps.tsv",
-        #tags="stacks/04_denovo_map/{sample}.tags.tsv"
-    output:
-       alleles="stacks/04_denovo_map/batch_1.catalog.alleles.tsv",
-       snps="stacks/04_denovo_map/batch_1.catalog.snps.tsv",
-       tags="stacks/04_denovo_map/batch_1.catalog.tags.tsv"
+    input: rules.ustacks.output
+    output: expand("stacks/04_denovo_map/batch_1.catalog.{type}.tsv", type=TYPES)
+       #alleles="stacks/04_denovo_map/batch_1.catalog.alleles.tsv",
+       #snps="stacks/04_denovo_map/batch_1.catalog.snps.tsv",
+       #tags="stacks/04_denovo_map/batch_1.catalog.tags.tsv"
     log: "stacks/04_denovo_map/cstacks.log"
     run:
-        output_dir = os.path.split(str(output)[0])[0]
-        cl = "cstacks -n 2 -b 1 -p 4 -o {output_dir}" + " -s ".join(SAMPLE_NAMES)
-        shell(cl)
+        #output_dir = os.path.split(str(output)[0])[0]
+        output_dir = "stacks/04_denovo_map"
+        input_samples_str = " -s stacks/04_denovo_map/".join(SAMPLE_NAMES)
+        shell("cstacks -n 2 -b 1 -p 4 -o {output_dir} {input_samples_str} 2>{log}")
 
 #cstacks -n 2 -b 1 -p 16 $(for file in $(for each in ../04_process_radtags/*.fastq; do file=$(basename $each); echo ${file%%.*}; done); do echo -n " -s $file"; done)
