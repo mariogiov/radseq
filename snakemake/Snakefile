@@ -66,8 +66,7 @@ rule process_radtags:
     log: "stacks/03_process_radtags/serial_process.log"
     run:
         output_dir = os.path.split(str(output.retained))[0]
-        shell("module load bioinfo-tools")
-        shell("module load Stacks")
+        shell("module load bioinfo-tools; module load Stacks")
         shell("process_radtags -c -q --filter_illumina -r -e ecoRI -i fastq "
               "-f {input} -o {output_dir} -D 2>>{log}")
 
