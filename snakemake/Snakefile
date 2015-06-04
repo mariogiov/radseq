@@ -63,18 +63,18 @@ rule trim_files:
 
 rule process_radtags:
     input: "stacks/02_trimmed/{sample}.fastq"
-    output:
-        retained="stacks/03_process_radtags/{sample}.fq",
+    output: "stacks/03_process_radtags/{sample}.fastq",
     log: "stacks/03_process_radtags/serial_process.log"
     run:
-        output_dir = os.path.split(str(output.retained))[0]
+        output_dir = os.path.split(str(output))[0]
         shell("rm -f {log}")
         shell("module load bioinfo-tools; module load Stacks")
         shell("process_radtags -c -q --filter_illumina -r -e ecoRI -i fastq "
               "-f {input} -o {output_dir} -D 2>>{log}")
 
 rule ustacks:
-    input: expand("stacks/03_process_radtags/{sample}.fq", sample=SAMPLE_NAMES)
+    input: expand("stacks/03_process_radtags/{sample}.fastq", sample=SAMPLE_NAMES)
+    #input: rules.process_radtags.output
     output: expand("stacks/04_denovo_map/{sample}.{type}.tsv", sample=SAMPLE_NAMES, type=TYPES)
     log: "stacks/04_denovo_map/ustacks.log"
     run:
