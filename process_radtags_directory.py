@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 """
-Process fastq files throughout a given directory with the specified enzymatic cut sites present.
-Runs process_radtags from the Stacks software. Merging fastq files when appropriate.
-
+NOTE: This script is pretty gross please look away. I was a young inexperienced Pythonista when I wrote it.
 
 This entire script is more or less replaceable by
 
     parallel 'r1={}; process_radtags -c -q --filter_illumina -r -e ecoRI -i gzfastq -o process_radtags_output_parallel -1 $r1 -2 ${r1/_1./_2.}' ::: *_1.fastq.gz
 
 and would probably never had been born if I knew about gnu parallel at its inception.
+
+
+Process fastq files throughout a given directory with the specified enzymatic cut sites present.
+Runs process_radtags from the Stacks software. Merging fastq files when appropriate.
 """
 
 from __future__ import print_function
