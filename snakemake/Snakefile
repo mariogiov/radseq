@@ -50,12 +50,13 @@ rule trim_files:
     output: 
         keep="stacks/02_trimmed/{sample}.fastq",
         discard="stacks/02_trimmed/trimmed-discarded/{sample}-trimmed-discarded.fastq"
-    log: "stacks/02_trimmed/{sample}.log"
+    log: "stacks/02_trimmed/cutadapt.log"
     shell:
         """
-        #module load bioinfo-tools
-        #module load cutadapt
-        cutadapt -a CTCTTCCGATCT {input} --untrimmed-output {output.keep} --overlap 5 -o {output.discard} 2>&1 > {log}
+        module load bioinfo-tools
+        module load cutadapt
+        rm -f {log}
+        cutadapt -a CTCTTCCGATCT {input} --untrimmed-output {output.keep} --overlap 5 -o {output.discard} 2>&1 >> {log}
         """
 
 rule process_radtags:
@@ -65,8 +66,8 @@ rule process_radtags:
     log: "stacks/03_process_radtags/serial_process.log"
     run:
         output_dir = os.path.split(str(output.retained))[0]
-        #shell("module load bioinfo-tools")
-        #shell("module load Stacks")
+        shell("module load bioinfo-tools")
+        shell("module load Stacks")
         shell("process_radtags -c -q --filter_illumina -r -e ecoRI -i fastq "
               "-f {input} -o {output_dir} -D 2>>{log}")
 
